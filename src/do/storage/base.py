@@ -70,3 +70,9 @@ class Storage(ABC):
             task_id (int): 任务ID
         """
         pass
+
+    def all(self) -> [FailedTask]:
+        """
+        Returns: 返回记录的所有任务
+        """
+        pass

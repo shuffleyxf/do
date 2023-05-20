@@ -1,9 +1,8 @@
 from threading import Thread
-import context
-import actuator
-
-configure = context.configure
-do = actuator.do
+from context import configure
+from actuator import do
+from actuator import main_loop
+from storage import task_info
 
 
 def start(block=True) -> None:
@@ -13,6 +12,6 @@ def start(block=True) -> None:
         block (bool, optional): 是否阻塞. 默认为True.
     """
     if block:
-        actuator.main_loop()
+        main_loop()
     else:
-        Thread(name='do工作线程', target=actuator.main_loop, daemon=True).start()
+        Thread(name='do工作线程', target=main_loop, daemon=True).start()

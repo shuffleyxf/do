@@ -78,3 +78,13 @@ def task_success(task_id: int) -> None:
         task_id (int): 任务ID
     """
     _storage.remove(task_id)
+
+
+def task_info() -> [dict]:
+    """
+    Returns: 返回字典类型的任务信息
+    """
+    info_list = []
+    for task in _storage.all():
+        info_list.append(task.__dict__.copy())
+    return info_list

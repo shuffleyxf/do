@@ -37,3 +37,6 @@ class MemoryStorage(Storage):
     def remove(self, task_id: int) -> None:
         if task_id in self._db:
             self._db.pop(task_id)
+
+    def all(self) -> [FailedTask]:
+        return [task for task in self._db.values()]

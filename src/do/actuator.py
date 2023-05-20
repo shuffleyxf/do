@@ -72,7 +72,7 @@ def do(func: callable = None, task_type: TaskType = None,
     Args:
         func (callable): 装饰函数
         task_type (TaskType): 任务类型
-        runner_name (str, optional): 任务运行期名字，默认为函数名
+        runner_name (str, optional): 任务运行器名字，默认为函数名
         namer_cls (type, optional): 任务名生成器类型，默认所有DefaultNamer.
         max_retry (int, optional): 最大重试次数
     """
