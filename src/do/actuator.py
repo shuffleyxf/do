@@ -90,6 +90,7 @@ def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
        max_retry: int = 0) -> callable:
     """函数装饰器
     该装饰器所装饰的函数终将执行成功(除非主动放弃)
+    如果func是类的方法，不应该直接装饰，应该采用语句更新方法引用。
 
     Args:
         func (callable): 装饰函数
