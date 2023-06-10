@@ -1,3 +1,7 @@
+import copy
+import inspect
+import traceback
+from enum import IntEnum
 from functools import partial, wraps
 from threading import Condition
 
@@ -40,6 +44,7 @@ def _redo(task: FailedTask) -> None:
     try:
         runner.run(*args, **kwargs)
     except Exception:
+        traceback.print_exc()
         pass
 
 
@@ -63,7 +68,24 @@ class TryNext(Exception):
         self.kwargs = kwargs
 
 
-def do(func: callable = None, task_type: TaskType = None,
+def _is_pure_function(func: callable) -> bool:
+    """
+    Args:
+        func: 输入函数
+    Returns: 若是纯函数返回True，否则返回False
+    """
+    module = inspect.getmodule(func)
+    return module is not None and hasattr(module, func.__name__)
+
+
+class FuncType(IntEnum):
+    FUNC = 1  # 函数类型
+    METHOD = 2  # 方法类型
+    AUTO_CHECK = 3  # 自动识别（但不保证准确）
+
+
+def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
+       task_type: TaskType = None,
        runner_name: str = '', namer_cls: type = DefaultNamer,
        max_retry: int = 0) -> callable:
     """函数装饰器
@@ -71,6 +93,7 @@ def do(func: callable = None, task_type: TaskType = None,
 
     Args:
         func (callable): 装饰函数
+        func_type: 函数类型
         task_type (TaskType): 任务类型
         runner_name (str, optional): 任务运行器名字，默认为函数名
         namer_cls (type, optional): 任务名生成器类型，默认所有DefaultNamer.
@@ -83,13 +106,16 @@ def do(func: callable = None, task_type: TaskType = None,
     if not runner_name:
         runner_name = func.__name__
 
-    def _first_do(args, kwargs) -> FailedTask:
+    def _first_do(args: tuple, kwargs: dict) -> FailedTask:
         nonlocal runner_name, task_type, max_retry
         local_task_type = _context.task_type if task_type is None else task_type
         local_max_retry = _context.max_retry if max_retry == 0 else max_retry
         namer = namer_cls()
+        task_args = copy.copy(args)
+        if func_type == FuncType.METHOD or (func_type == FuncType.AUTO_CHECK and not _is_pure_function(func)):
+            task_args = task_args[1:]
         task_name = namer.gen(func, args, kwargs)
-        return new_failed_task(task_name, local_task_type, args, kwargs, runner_name, local_max_retry)
+        return new_failed_task(task_name, local_task_type, task_args, kwargs, runner_name, local_max_retry)
 
     @wraps(func)
     def wrapper(*args, **kwargs) -> object:
@@ -109,6 +135,7 @@ def do(func: callable = None, task_type: TaskType = None,
             raise
         except Exception as e:
             if task.task_type == TaskType.Idempotent:
+                task.task_kwargs = kwargs
                 task_failed(task)
                 _notify()
                 raise
