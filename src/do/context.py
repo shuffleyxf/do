@@ -40,6 +40,7 @@ def configure(task_type: TaskType = None,
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         for name, val in kwargs.items():
             context.__setattr__(name, val)
+        context.__post_init__()
     except Exception as e:
         raise ConfigureException(f"配置异常") from e
 
