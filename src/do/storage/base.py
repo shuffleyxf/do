@@ -19,6 +19,8 @@ class TaskType(IntEnum):
 
 @dataclass
 class FailedTask:
+    INIT_ID = -1   # 初始ID
+
     """任务数据类"""
     task_id: int    # 任务唯一标识
     task_type: TaskType  # 任务类型
@@ -50,15 +52,6 @@ class Storage(ABC):
 
         Args:
             task (FailedTask): 失败任务
-        """
-        pass
-
-    @abstractmethod
-    def gen_id(self) -> int:
-        """生成唯一id
-
-        Returns:
-            int: 任务标识
         """
         pass
 

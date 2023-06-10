@@ -1,4 +1,6 @@
 import time
+import traceback
+
 from storage.base import FailedTask, Storage, TaskState, TaskType
 
 _storage: Storage = None    # 存储类
@@ -29,7 +31,7 @@ def new_failed_task(task_name: str, task_type: TaskType, task_args: list, task_k
     Returns:
         FailedTask: 失败任务对象
     """
-    return FailedTask(task_id=_storage.gen_id(), task_name=task_name,
+    return FailedTask(task_id=FailedTask.INIT_ID, task_name=task_name,
                       task_type=task_type, task_args=task_args,
                       task_kwargs=task_kwargs, runner_name=runner_name,
                       retry_count=0, max_retry=max_retry, create_time=time.time(),
@@ -48,7 +50,11 @@ def task_failed(task: FailedTask) -> None:
     else:
         task.retry_count += 1
         task.state = TaskState.Failed
-    _storage.put(task)
+    try:
+        _storage.put(task)
+    except Exception:
+        traceback.print_exc()
+        raise
 
 
 def task_interrupted(task: FailedTask) -> None:
@@ -77,7 +83,8 @@ def task_success(task_id: int) -> None:
     Args:
         task_id (int): 任务ID
     """
-    _storage.remove(task_id)
+    if task_id != FailedTask.INIT_ID:
+        _storage.remove(task_id)
 
 
 def task_info() -> [dict]:
