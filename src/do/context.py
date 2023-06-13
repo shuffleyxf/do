@@ -42,7 +42,7 @@ def configure(task_type: TaskType = None,
             context.__setattr__(name, val)
         context.__post_init__()
     except Exception as e:
-        raise ConfigureException(f"配置异常") from e
+        raise ConfigureException(f"Configure error!") from e
 
 
 def register(name: str, runner: callable) -> None:

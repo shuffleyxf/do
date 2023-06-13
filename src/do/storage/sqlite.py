@@ -5,6 +5,7 @@ from sqlite3 import Cursor
 from typing import Union
 
 from storage import Storage, FailedTask, TaskState, TaskType
+from do_log import debug
 
 
 class SqliteStorage(Storage):
@@ -77,6 +78,11 @@ class SqliteStorage(Storage):
             state=TaskState(data_dict.get('state'))
         )
 
+    @staticmethod
+    def _execute_sql(cursor: Cursor, *args):
+        debug(f'sqlite execute sql: {args}.')
+        cursor.execute(*args)
+
     def _select(self, cursor: Cursor, condition: str = "") -> [FailedTask]:
         keys = ['task_id', 'task_type', 'task_name', 'task_args', 'task_kwargs', 'runner_name',
                 'retry_count', 'max_retry', 'create_time', 'update_time', 'state']
@@ -84,7 +90,7 @@ class SqliteStorage(Storage):
         for k in keys:
             select_sql += f"{k}, "
         select_sql = f'{select_sql.rstrip(", ")} FROM {self._TB_NAME} {condition}'
-        cursor.execute(select_sql)
+        self._execute_sql(cursor, select_sql)
         values = cursor.fetchall()
         task_list = list()
         data_dict = dict()
@@ -123,7 +129,7 @@ class SqliteStorage(Storage):
                     update_sql += f"{k} = ?, "
                     values.append(data_dict.get(k))
                 update_sql = update_sql.rstrip(", ")
-                cursor.execute(update_sql, values)
+                self._execute_sql(cursor, update_sql, values)
             else:
                 insert_sql = f"INSERT INTO `{self._TB_NAME}`("
                 key_counter = 0
@@ -136,12 +142,12 @@ class SqliteStorage(Storage):
                 insert_sql = f"{insert_sql.rstrip(', ')}) VALUES(" \
                              + (key_counter - 1) * "?, " \
                              + "?)"
-                cursor.execute(insert_sql, values)
+                self._execute_sql(cursor, insert_sql, values)
 
     def remove(self, task_id: int) -> None:
         with self._new_conn() as conn:
             cursor = conn.cursor()
-            cursor.execute(f"DELETE FROM `{self._TB_NAME}` WHERE {self._PK} = {task_id}")
+            self._execute_sql(cursor, f"DELETE FROM `{self._TB_NAME}` WHERE {self._PK} = {task_id}")
 
     def all(self) -> [FailedTask]:
         with self._new_conn() as conn:

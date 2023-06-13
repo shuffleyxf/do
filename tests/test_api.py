@@ -115,7 +115,7 @@ class TestDo3:
 
         assert self.data['66-do'] is False
 
-        with pytest.raises(DoException):
+        with pytest.raises(Exception):
             self.do_get_66()
 
         assert self.data['66-do'] is False
@@ -201,7 +201,6 @@ class TestDo6:
         self.data['66'] = True
 
     def do_get_66(self):
-        print(time.time())
         self.data['counter-do'] += 1
         if self.data['counter-do'] != 66:
             raise Exception("not 66")

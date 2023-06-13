@@ -32,7 +32,7 @@ class MemoryStorage(Storage):
             if task.state == TaskState.Failed:
                 self._queue.put_nowait(task)
         except queue.Full:
-            raise DataException("队列已满！")
+            raise DataException("queue already full！")
 
     def _gen_id(self) -> int:
         with self._lock:

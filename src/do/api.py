@@ -14,4 +14,4 @@ def start(block=True) -> None:
     if block:
         main_loop()
     else:
-        Thread(name='do工作线程', target=main_loop, daemon=True).start()
+        Thread(name='do-worker', target=main_loop, daemon=True).start()

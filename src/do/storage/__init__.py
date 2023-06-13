@@ -1,6 +1,7 @@
 import time
 import traceback
 
+from do_log import exception
 from storage.base import FailedTask, Storage, TaskState, TaskType
 
 _storage: Storage = None    # 存储类
@@ -53,7 +54,7 @@ def task_failed(task: FailedTask) -> None:
     try:
         _storage.put(task)
     except Exception:
-        traceback.print_exc()
+        exception(f'failed to save task-{task.task_name}.')
         raise
 
 

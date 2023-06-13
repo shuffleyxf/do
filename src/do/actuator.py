@@ -5,6 +5,7 @@ from enum import IntEnum
 from functools import partial, wraps
 from threading import Condition
 
+from do_log import info, exception
 from storage.base import FailedTask, TaskType
 from storage import take_failed_task, new_failed_task, task_failed, \
     task_success, task_interrupted
@@ -36,6 +37,7 @@ def _redo(task: FailedTask) -> None:
     """
     runner = get_runner(task.runner_name)
     if runner is None:
+        info(f'runner {task.runner_name} not found, stop retry {task.task_name}.')
         task_interrupted(task)
         return
 
@@ -44,7 +46,7 @@ def _redo(task: FailedTask) -> None:
     try:
         runner.run(*args, **kwargs)
     except Exception:
-        traceback.print_exc()
+        exception(f'failed to redo task-{task.task_name}.')
         pass
 
 
@@ -131,18 +133,21 @@ def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
         except TryNext as e:
             task.task_args = e.args
             task.task_kwargs = e.kwargs
+            info(f'non-idempotent task-{task.task_name} failed for the {task.retry_count+1}th time.')
             task_failed(task)
             _notify()
             raise
-        except Exception as e:
+        except Exception:
             if task.task_type == TaskType.Idempotent:
                 task.task_kwargs = kwargs
+                info(f'idempotent task-{task.task_name} failed for the {task.retry_count + 1}th time.')
                 task_failed(task)
                 _notify()
-                raise
             else:
-                raise DoException(f"任务{task.task_name}非幂等，无法重试") from e
+                info(f"task-{task.task_name} is not idempotent.")
+            raise
         else:
+            info(f'task-{task.task_name} success.')
             task_success(task.task_id)
             return result
 
