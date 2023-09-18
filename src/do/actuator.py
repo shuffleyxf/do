@@ -1,26 +1,28 @@
 import copy
 import inspect
+import time
 import traceback
 from enum import IntEnum
 from functools import partial, wraps
 from threading import Condition
 
+import context
+from controller import RetryStrategy
 from do_log import info, exception
 from storage.base import FailedTask, TaskType
 from storage import take_failed_task, new_failed_task, task_failed, \
-    task_success, task_interrupted
+    task_success, task_interrupted, next_failed_task
 from context import get_runner, register
 from context import context as _context
 from model import DefaultNamer, Runner
-from error import DoException
 
 _META_KEY = 'kEfrwsLmeo9QDQK4qUZuJv0ZL8yMLdIA'   # 元数据键名
 _cond: Condition = Condition()  # 条件量
 
 
-def _wait() -> None:
+def _wait(timeout: float = None) -> None:
     with _cond:
-        _cond.wait()
+        _cond.wait(timeout)
 
 
 def _notify() -> None:
@@ -47,7 +49,6 @@ def _redo(task: FailedTask) -> None:
         runner.run(*args, **kwargs)
     except Exception:
         exception(f'failed to redo task-{task.task_name}.')
-        pass
 
 
 def main_loop() -> None:
@@ -55,11 +56,21 @@ def main_loop() -> None:
     不断重试获取失败任务并执行
     """
     while True:
-        task = take_failed_task()
-        if task is None:
-            _wait()
-        else:
-            _redo(task)
+        try:
+            now = time.time()
+            task = take_failed_task()
+            if task is not None:
+                _redo(task)
+            else:
+                next_task = next_failed_task()
+                if next_task is not None:
+                    wait_time = next_task.next_run_time - now
+                    _wait(wait_time)
+                else:
+                    _wait()
+        except Exception:
+            exception("事件循环异常崩溃")
+
 
 
 class TryNext(Exception):
@@ -86,10 +97,25 @@ class FuncType(IntEnum):
     AUTO_CHECK = 3  # 自动识别（但不保证准确）
 
 
-def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
+def handle_failed_task(task: FailedTask):
+    """
+    失败任务处理
+    Args:
+        task: 失败的任务
+    """
+    next_run_time = context.context.controller.next_run_time(task)
+    task.next_run_time = next_run_time
+    task_failed(task)
+    _notify()
+
+
+def do(func: callable = None,
+       func_type: FuncType = FuncType.AUTO_CHECK,
        task_type: TaskType = None,
-       runner_name: str = '', namer_cls: type = DefaultNamer,
-       max_retry: int = 0) -> callable:
+       runner_name: str = '',
+       namer_cls: type = DefaultNamer,
+       max_retry: int = 0,
+       retry_strategy: RetryStrategy = None) -> callable:
     """函数装饰器
     该装饰器所装饰的函数终将执行成功(除非主动放弃)
     如果func是类的方法，不应该直接装饰，应该采用语句更新方法引用。
@@ -101,6 +127,7 @@ def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
         runner_name (str, optional): 任务运行器名字，默认为函数名
         namer_cls (type, optional): 任务名生成器类型，默认所有DefaultNamer.
         max_retry (int, optional): 最大重试次数
+        retry_strategy (RetryStrategy): 重试策略
     """
     if func is None:
         return partial(do, task_type=task_type, runner_name=runner_name,
@@ -108,6 +135,9 @@ def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
 
     if not runner_name:
         runner_name = func.__name__
+
+    if retry_strategy is not None:
+        context.context.controller.register_strategy(runner_name, retry_strategy)
 
     def _first_do(args: tuple, kwargs: dict) -> FailedTask:
         nonlocal runner_name, task_type, max_retry
@@ -134,15 +164,13 @@ def do(func: callable = None, func_type: FuncType = FuncType.AUTO_CHECK,
             task.task_args = e.args
             task.task_kwargs = e.kwargs
             info(f'non-idempotent task-{task.task_name} failed for the {task.retry_count+1}th time.')
-            task_failed(task)
-            _notify()
+            handle_failed_task(task)
             raise
         except Exception:
             if task.task_type == TaskType.Idempotent:
                 task.task_kwargs = kwargs
                 info(f'idempotent task-{task.task_name} failed for the {task.retry_count + 1}th time.')
-                task_failed(task)
-                _notify()
+                handle_failed_task(task)
             else:
                 info(f"task-{task.task_name} is not idempotent.")
             raise

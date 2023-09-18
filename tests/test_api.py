@@ -3,10 +3,11 @@ import time
 import pytest
 
 from api import *
-from error import DoException
+from controller import IntervalStrategy
 from model import BaseNamer
 from storage import TaskType
-from confest import start_do
+from confest import start_do, keep_check
+from storage.memory import MemoryStorage
 from storage.sqlite import SqliteStorage
 
 
@@ -45,7 +46,7 @@ class TestDo1:
             self.get_66()
         with pytest.raises(Exception):
             self.do_get_66()
-        time.sleep(3)
+        keep_check(lambda : self.data['66-do'] is True)
 
         assert self.data['66'] is False
         assert self.data['66-do'] is True
@@ -86,7 +87,9 @@ class TestDo2:
             self.get_66()
         with pytest.raises(Exception):
             self.do_get_66()
-        time.sleep(3)
+
+        with pytest.raises(Exception):
+            keep_check(lambda : self.data['66-do'] is True, max_time=10)
 
         assert self.data['66'] is False
         assert self.data['66-do'] is False
@@ -153,7 +156,7 @@ class TestDo4:
 
         with pytest.raises(Exception):
             self.do_get_66()
-        time.sleep(3)
+        keep_check(lambda : self.data['counter-do'] == 66)
 
         assert self.data['66-do'] is False
         assert self.data['counter-do'] == 66
@@ -181,7 +184,6 @@ class TestDo5:
             self.do_never_success()
         with pytest.raises(Exception):
             self.do_never_success_custom()
-        time.sleep(1)
 
         task_name_list = [task.get('task_name') for task in task_info()]
         assert "do_never_success" in task_name_list
@@ -223,7 +225,40 @@ class TestDo6:
             self.get_66()
         with pytest.raises(Exception):
             self.do_get_66()
-        time.sleep(20)
+        keep_check(lambda : self.data['66-do'] is True)
 
         assert self.data['66'] is False
         assert self.data['66-do'] is True
+
+
+class TestDo7:
+    """
+    测试重试策略
+    """
+    counter_1 = 0
+    counter_2 = 0
+
+    def do_add(self):
+        self.counter_1 += 1
+        raise Exception()
+
+    def do_add_per_second(self):
+        self.counter_2 += 1
+        raise Exception()
+
+    def test_case(self, start_do):
+        configure(storage=MemoryStorage())
+        self.do_add = do(self.do_add)
+        self.do_add_per_second = do(self.do_add_per_second, retry_strategy=IntervalStrategy(1))
+
+        with pytest.raises(Exception):
+            self.do_add()
+        with pytest.raises(Exception):
+            self.do_add_per_second()
+        time.sleep(5)
+
+        expect_count = 5
+        margin = 1
+        assert self.counter_1 > self.counter_2
+        assert expect_count + margin >= self.counter_2 >= expect_count - margin
+

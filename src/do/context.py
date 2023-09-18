@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+
+from controller import RetryController
 from storage.base import Storage, TaskType
 from storage.memory import MemoryStorage
 from storage import set_storage
@@ -14,6 +16,7 @@ class DoContext:
     task_type: TaskType = field(default=TaskType.Idempotent)    # 任务类型，默认为幂等的
     max_retry: int = field(default=-1)  # 最大重试次数，默认无限重试
     storage: Storage = field(default=MemoryStorage())    # 存储类型，默认基于内存
+    controller: RetryController = field(default=RetryController())    # 重试控制器
 
     def __post_init__(self):
         """同步更新全局存储器"""

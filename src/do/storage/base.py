@@ -17,6 +17,9 @@ class TaskType(IntEnum):
     NonIdempotent = 0   # 非幂等，非幂等函数重试可能存在副作用，需要通过TryNext异常传入恰当的参数
 
 
+ANY_TIME = -1   # 任何时候
+
+
 @dataclass
 class FailedTask:
     INIT_ID = -1   # 初始ID
@@ -32,7 +35,11 @@ class FailedTask:
     max_retry: int  # 最大重试次数
     create_time: float  # 创建时间
     update_time: float  # 更新时间
+    next_run_time: float    # 上次执行时间
     state: TaskState    # 任务状态
+
+    def __gt__(self, other):
+        return self.task_id < other.task_id
 
 
 class Storage(ABC):
@@ -64,8 +71,16 @@ class Storage(ABC):
         """
         pass
 
+    @abstractmethod
     def all(self) -> [FailedTask]:
         """
         Returns: 返回记录的所有任务
+        """
+        pass
+
+    @abstractmethod
+    def get_next(self) -> [FailedTask]:
+        """
+        Returns: 返回最近需要执行的任务
         """
         pass

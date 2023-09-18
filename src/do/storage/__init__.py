@@ -2,7 +2,7 @@ import time
 import traceback
 
 from do_log import exception
-from storage.base import FailedTask, Storage, TaskState, TaskType
+from storage.base import FailedTask, Storage, TaskState, TaskType, ANY_TIME
 
 _storage: Storage = None    # 存储类
 
@@ -32,11 +32,18 @@ def new_failed_task(task_name: str, task_type: TaskType, task_args: list, task_k
     Returns:
         FailedTask: 失败任务对象
     """
-    return FailedTask(task_id=FailedTask.INIT_ID, task_name=task_name,
-                      task_type=task_type, task_args=task_args,
-                      task_kwargs=task_kwargs, runner_name=runner_name,
-                      retry_count=0, max_retry=max_retry, create_time=time.time(),
-                      update_time=time.time(), state=TaskState.Failed)
+    return FailedTask(task_id=FailedTask.INIT_ID,
+                      task_name=task_name,
+                      task_type=task_type,
+                      task_args=task_args,
+                      task_kwargs=task_kwargs,
+                      runner_name=runner_name,
+                      retry_count=0,
+                      max_retry=max_retry,
+                      create_time=time.time(),
+                      update_time=time.time(),
+                      next_run_time=ANY_TIME,
+                      state=TaskState.Failed)
 
 
 def task_failed(task: FailedTask) -> None:
@@ -46,6 +53,8 @@ def task_failed(task: FailedTask) -> None:
         task (FailedTask): 失败任务
     """
     task.update_time = time.time()
+    if task.next_run_time == ANY_TIME:
+        task.next_run_time = time.time()
     if task.max_retry != 0 and task.retry_count == task.max_retry:
         task.state = TaskState.Stopped
     else:
@@ -76,6 +85,13 @@ def take_failed_task() -> FailedTask:
         FailedTask: 待重试失败任务
     """
     return _storage.take()
+
+
+def next_failed_task() -> FailedTask:
+    """
+    Returns: 返回下一个待执行的任务
+    """
+    return _storage.get_next()
 
 
 def task_success(task_id: int) -> None:

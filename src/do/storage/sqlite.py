@@ -1,5 +1,6 @@
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from sqlite3 import Cursor
 from typing import Union
@@ -43,6 +44,7 @@ class SqliteStorage(Storage):
                 max_retry INTEGER,
                 create_time FLOAT,
                 update_time FLOAT,
+                next_run_time FLOAT,
                 state INTEGER
             )
             """)
@@ -59,6 +61,7 @@ class SqliteStorage(Storage):
             'max_retry': task.max_retry,
             'create_time': task.create_time,
             'update_time': task.update_time,
+            'next_run_time': task.next_run_time,
             'state': int(task.state)
         }
 
@@ -75,6 +78,7 @@ class SqliteStorage(Storage):
             max_retry=data_dict.get('max_retry'),
             create_time=data_dict.get('create_time'),
             update_time=data_dict.get('update_time'),
+            next_run_time=data_dict.get('next_run_time'),
             state=TaskState(data_dict.get('state'))
         )
 
@@ -85,7 +89,7 @@ class SqliteStorage(Storage):
 
     def _select(self, cursor: Cursor, condition: str = "") -> [FailedTask]:
         keys = ['task_id', 'task_type', 'task_name', 'task_args', 'task_kwargs', 'runner_name',
-                'retry_count', 'max_retry', 'create_time', 'update_time', 'state']
+                'retry_count', 'max_retry', 'create_time', 'update_time', 'next_run_time', 'state']
         select_sql = f"SELECT "
         for k in keys:
             select_sql += f"{k}, "
@@ -104,7 +108,9 @@ class SqliteStorage(Storage):
         with self._new_conn() as conn:
             cursor = conn.cursor()
             task_list = self._select(cursor, f"""
-                WHERE state = 1
+                WHERE 
+                    state = 1
+                    AND next_run_time <= {time.time()}
                 ORDER BY UPDATE_TIME
                 LIMIT 1
             """)
@@ -125,7 +131,7 @@ class SqliteStorage(Storage):
             values = list()
             if exists:
                 update_sql = f"UPDATE `{self._TB_NAME}` SET "
-                for k in ['task_name', 'task_args', 'task_kwargs', 'retry_count', 'update_time', 'state']:
+                for k in ['task_name', 'task_args', 'task_kwargs', 'retry_count', 'update_time', 'next_run_time', 'state']:
                     update_sql += f"{k} = ?, "
                     values.append(data_dict.get(k))
                 update_sql = update_sql.rstrip(", ")
@@ -153,3 +159,16 @@ class SqliteStorage(Storage):
         with self._new_conn() as conn:
             cursor = conn.cursor()
             return self._select(cursor)
+
+    def get_next(self) -> [FailedTask]:
+        with self._new_conn() as conn:
+            cursor = conn.cursor()
+            task_list = self._select(cursor, f"""
+                WHERE 
+                    state = 1
+                ORDER BY next_run_time
+                LIMIT 1
+            """)
+            if task_list:
+                return task_list[0]
+            return None
