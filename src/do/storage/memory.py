@@ -2,7 +2,7 @@ import time
 import queue
 from threading import RLock
 
-from storage.base import FailedTask, Storage, TaskState, ANY_TIME
+from base import FailedTask, Storage, TaskState
 from error import DataException
 
 

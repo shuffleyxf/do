@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from sqlite3 import Cursor
 from typing import Union
 
-from storage import Storage, FailedTask, TaskState, TaskType
+from base import Storage, FailedTask, TaskState, TaskType
 from do_log import debug
 
 

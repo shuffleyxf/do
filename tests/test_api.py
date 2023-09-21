@@ -2,10 +2,9 @@ import time
 
 import pytest
 
-from api import *
-from controller import IntervalStrategy
-from model import BaseNamer
-from storage import TaskType
+from base import IntervalStrategy, BaseNamer, TaskType
+from api import do, task_info
+from configuration import configure
 from confest import start_do, keep_check
 from storage.memory import MemoryStorage
 from storage.sqlite import SqliteStorage
