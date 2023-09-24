@@ -42,7 +42,7 @@ def do(func: callable = None,
     """
     if func is None:
         return partial(do, task_type=task_type, runner_name=runner_name,
-                       namer_cls=namer_cls, max_retry=max_retry)
+                       namer_cls=namer_cls, max_retry=max_retry, retry_strategy=retry_strategy)
 
     if not runner_name:
         runner_name = func.__name__
