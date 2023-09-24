@@ -3,7 +3,7 @@ from threading import Condition, Thread
 
 from configuration import configuration
 from base import RetryStrategy
-from do_log import info, exception
+from do_log import info, exception, error
 from base import FailedTask
 from storage_helper import task_interrupted, take_failed_task, next_failed_task, task_failed
 
@@ -57,7 +57,7 @@ class DoActuator:
         """
         runner = self._runner_registry.get(task.runner_name)
         if runner is None:
-            info(f'runner {task.runner_name} not found, stop retry {task.task_name}.')
+            error(f'runner not found, stop retry {task}.')
             task_interrupted(task)
             return
 
@@ -66,7 +66,7 @@ class DoActuator:
         try:
             runner.run(*args, **kwargs)
         except Exception:
-            exception(f'failed to redo task-{task.task_name}.')
+            error(f'Task failed: {task}')
 
     def _main_loop(self) -> None:
         """主循环
@@ -86,10 +86,10 @@ class DoActuator:
                     else:
                         self._wait()
             except Exception:
-                exception("事件循环异常崩溃")
+                exception("Main loop crash!")
 
 
-    def start(self, block=True) -> None:
+    def start(self, block: bool=True) -> None:
         """启动do机制
 
         Args:
@@ -113,6 +113,7 @@ class DoActuator:
         Args:
             task: 失败的任务
         """
+        info(f'New FailedTask: str({task})')
         next_run_time = self._next_run_time(task)
         task.next_run_time = next_run_time
         task_failed(task)

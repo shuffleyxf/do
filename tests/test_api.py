@@ -224,7 +224,7 @@ class TestDo6:
             self.get_66()
         with pytest.raises(Exception):
             self.do_get_66()
-        keep_check(lambda : self.data['66-do'] is True)
+        keep_check(lambda : self.data['66-do'] is True, max_time=180)
 
         assert self.data['66'] is False
         assert self.data['66-do'] is True

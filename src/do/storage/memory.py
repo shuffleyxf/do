@@ -19,8 +19,6 @@ class QueryablePriorityQueue(queue.PriorityQueue):
             return None
 
     def put_task(self, task: FailedTask):
-        elem = (task.next_run_time, task)
-        print(elem)
         self.put_nowait((task.next_run_time, task))
 
     def get_task(self) -> FailedTask:

@@ -7,6 +7,6 @@ def test_set_log_file():
         os.remove(file_path)
 
     assert not os.path.isfile(file_path)
-    set_log_file(file_path)
+    configure_logger(log_file=True, log_file_path=file_path)
     info("hello")
     assert os.path.isfile(file_path)

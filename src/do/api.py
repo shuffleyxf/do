@@ -1,11 +1,12 @@
 import copy
 import inspect
+import logging
 from functools import partial, wraps
 
 from actuator import actuator, MetaProcessor
 from configuration import configuration, configure
 from base import FuncType, TaskType, DefaultNamer, RetryStrategy, FailedTask, Runner
-from do_log import info
+from do_log import info, configure_logger
 import storage_helper
 task_info = storage_helper.task_info
 start = actuator.start
@@ -97,3 +98,14 @@ def do(func: callable = None,
     return wrapper
 
 
+def start_do(block: bool=False, log_level: int = logging.ERROR, log_file: bool=False):
+    """
+    启动入口
+    Args:
+        block: 是否阻塞
+        log_level: 日志等级
+        log_file: 是否开启文件日志
+
+    """
+    actuator.start(block=block)
+    configure_logger(level=log_level, log_file=log_file)

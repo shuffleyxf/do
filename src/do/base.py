@@ -42,11 +42,15 @@ class FailedTask:
     max_retry: int  # 最大重试次数
     create_time: float  # 创建时间
     update_time: float  # 更新时间
-    next_run_time: float    # 上次执行时间
+    next_run_time: float    # 下次执行时间
     state: TaskState    # 任务状态
 
     def __gt__(self, other):
         return self.task_id < other.task_id
+
+    def __str__(self):
+        return (f'(id={self.task_id}, name={self.task_name}, runner_name={self.runner_name},'
+                f' retry_count={self.retry_count})')
 
 
 class Storage(ABC):
@@ -91,6 +95,7 @@ class Storage(ABC):
         Returns: 返回最近需要执行的任务
         """
         pass
+
 
 class Runner:
     """任务运行器"""
